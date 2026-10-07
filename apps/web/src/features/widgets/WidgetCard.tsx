@@ -70,10 +70,26 @@ export function WidgetCard({ summary }: { summary: WidgetSummary }) {
           Unable to delete this widget. Please try again.
         </Alert>
       )}
+      {query.isError && query.data && (
+        <Alert color="red" role="alert" mb="sm">
+          <Group justify="space-between">
+            <span>Unable to refresh this widget. Showing saved content.</span>
+            <Button
+              size="xs"
+              variant="light"
+              color="red"
+              loading={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              Retry widget
+            </Button>
+          </Group>
+        </Alert>
+      )}
       <div className="widget-body">
         {query.isPending ? (
           <Skeleton height="100%" aria-label="Loading chart" />
-        ) : query.isError ? (
+        ) : query.isError && !query.data ? (
           <Alert color="red" title="Unable to load this widget" role="alert">
             <Stack gap="sm">
               <span>Please try again.</span>

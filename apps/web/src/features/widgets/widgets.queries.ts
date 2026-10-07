@@ -26,7 +26,8 @@ export function useUpdateWidget(id: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (text: string) => updateWidget(id, text),
-    onSuccess: (widget) => {
+    onSuccess: async (widget) => {
+      await client.cancelQueries({ queryKey: ['widgets', id], exact: true })
       client.setQueryData(['widgets', id], widget)
     },
   })

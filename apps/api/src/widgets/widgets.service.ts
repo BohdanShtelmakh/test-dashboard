@@ -29,6 +29,13 @@ export class WidgetsService {
     @Inject(SchemaRegistry) private readonly schemas: SchemaRegistry,
   ) {}
 
+  private unexpectedError(
+    message: string,
+    error: unknown,
+  ): InternalServerErrorException {
+    return new InternalServerErrorException(message, { cause: error });
+  }
+
   async create(type: WidgetType): Promise<WidgetSummary> {
     try {
       return await this.database.db.transaction(async (tx) => {
@@ -55,15 +62,13 @@ export class WidgetsService {
             rowCount: definition.rows.length,
           })
           .returning({ id: datasets.id });
-        await tx
-          .insert(datasetRows)
-          .values(
-            definition.rows.map((values, rowIndex) => ({
-              datasetId: dataset.id,
-              rowIndex,
-              values,
-            })),
-          );
+        await tx.insert(datasetRows).values(
+          definition.rows.map((values, rowIndex) => ({
+            datasetId: dataset.id,
+            rowIndex,
+            values,
+          })),
+        );
         const [widget] = await tx
           .insert(widgets)
           .values({
@@ -79,8 +84,8 @@ export class WidgetsService {
           });
         return widget;
       });
-    } catch {
-      throw new InternalServerErrorException('Unable to create widget');
+    } catch (error) {
+      throw this.unexpectedError('Unable to create widget', error);
     }
   }
 
@@ -106,7 +111,7 @@ export class WidgetsService {
       });
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      throw new InternalServerErrorException('Unable to update widget');
+      throw this.unexpectedError('Unable to update widget', error);
     }
   }
 
@@ -147,7 +152,7 @@ export class WidgetsService {
       });
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      throw new InternalServerErrorException('Unable to delete widget');
+      throw this.unexpectedError('Unable to delete widget', error);
     }
   }
 
@@ -157,8 +162,8 @@ export class WidgetsService {
         .select({ id: widgets.id, type: widgets.type, title: widgets.title })
         .from(widgets)
         .orderBy(asc(widgets.createdAt), asc(widgets.id));
-    } catch {
-      throw new InternalServerErrorException('Unable to load widgets');
+    } catch (error) {
+      throw this.unexpectedError('Unable to load widgets', error);
     }
   }
 
@@ -204,8 +209,8 @@ export class WidgetsService {
       let chart;
       try {
         chart = validateChartConfig(widget.type, widget.config, columns);
-      } catch {
-        throw new InternalServerErrorException('Invalid widget configuration');
+      } catch (error) {
+        throw this.unexpectedError('Invalid widget configuration', error);
       }
       const rows = await this.database.db
         .select({ values: datasetRows.values })
@@ -225,7 +230,7 @@ export class WidgetsService {
       };
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      throw new InternalServerErrorException('Unable to load widget');
+      throw this.unexpectedError('Unable to load widget', error);
     }
   }
 }

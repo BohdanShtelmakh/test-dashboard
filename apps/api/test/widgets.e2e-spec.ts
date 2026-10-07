@@ -297,7 +297,7 @@ describe('widgets API (PostgreSQL e2e)', () => {
     const { body } = await request(app.getHttpServer())
       .get(`/api/widgets/${INITIAL_WIDGET_IDS.line}`)
       .expect(500);
-    expect(body.message).toBe('Invalid widget configuration');
+    expect(body.message).toBe('Internal server error');
     expect(JSON.stringify(body)).not.toContain('private-invalid-field');
   });
 
@@ -562,7 +562,7 @@ describe('widgets API (PostgreSQL e2e)', () => {
         .post('/api/widgets')
         .send({ type: 'BAR' })
         .expect(500);
-      expect(response.body.message).toBe('Unable to create widget');
+      expect(response.body.message).toBe('Internal server error');
       expect(JSON.stringify(response.body)).not.toContain(
         'private database failure',
       );
@@ -592,7 +592,7 @@ describe('widgets API (PostgreSQL e2e)', () => {
       const response = await request(app.getHttpServer())
         .delete(`/api/widgets/${created.id}`)
         .expect(500);
-      expect(response.body.message).toBe('Unable to delete widget');
+      expect(response.body.message).toBe('Internal server error');
       expect(await detail(created.id)).toEqual(before);
     } finally {
       await database.db.execute(

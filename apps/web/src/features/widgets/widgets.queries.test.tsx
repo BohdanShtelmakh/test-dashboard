@@ -43,7 +43,12 @@ function setup() {
     </QueryClientProvider>,
   )
   if (!mutations.current) throw new Error('Missing mutation hooks')
-  const note = { id: 'note', type: 'TEXT' as const, title: 'Text', text: 'Old' }
+  const note = {
+    id: 'note',
+    type: 'TEXT' as const,
+    title: 'Text',
+    text: 'Old',
+  }
   const chart = { id: 'chart', type: 'BAR' as const, title: 'Bar' }
   client.setQueryData(['widgets'], [note, chart])
   client.setQueryData(['widgets', 'note'], note)
@@ -76,6 +81,35 @@ describe('widget mutation cache behavior', () => {
       text: 'Saved',
     })
     expect(client.getQueryState(['widgets'])?.isInvalidated).toBe(false)
+    expect(client.getQueryState(['widgets', 'chart'])?.isInvalidated).toBe(
+      false,
+    )
+    client.clear()
+  })
+  it('cancels an outstanding read so it cannot overwrite saved text', async () => {
+    const { client, mutations, note } = setup()
+    let finishRead!: (value: typeof note) => void
+    let signal!: AbortSignal
+    const staleRead = client
+      .fetchQuery({
+        queryKey: ['widgets', 'note'],
+        queryFn: (context) => {
+          signal = context.signal
+          return new Promise<typeof note>((resolve) => {
+            finishRead = resolve
+          })
+        },
+      })
+      .catch(() => undefined)
+    vi.mocked(updateWidget).mockResolvedValue({ ...note, text: 'Saved' })
+    await mutations.update.mutateAsync('Saved')
+    expect(signal.aborted).toBe(true)
+    finishRead(note)
+    await staleRead
+    expect(client.getQueryData(['widgets', 'note'])).toEqual({
+      ...note,
+      text: 'Saved',
+    })
     expect(client.getQueryState(['widgets', 'chart'])?.isInvalidated).toBe(
       false,
     )

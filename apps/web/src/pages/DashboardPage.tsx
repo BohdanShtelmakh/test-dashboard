@@ -23,6 +23,21 @@ export function DashboardPage() {
         <Button onClick={() => setCreating(true)}>Create widget</Button>
       </Group>
       <CreateWidgetModal opened={creating} onClose={() => setCreating(false)} />
+      {query.isError && query.data && (
+        <Alert color="red" role="alert" mb="lg">
+          <Group justify="space-between">
+            <Text>Unable to refresh the dashboard. Showing saved widgets.</Text>
+            <Button
+              variant="light"
+              color="red"
+              loading={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              Retry dashboard
+            </Button>
+          </Group>
+        </Alert>
+      )}
       {query.isPending ? (
         <div
           className="dashboard-grid"
@@ -33,7 +48,7 @@ export function DashboardPage() {
             <WidgetSkeleton key={key} />
           ))}
         </div>
-      ) : query.isError ? (
+      ) : query.isError && !query.data ? (
         <Alert color="red" title="Unable to load the dashboard" role="alert">
           <Stack gap="sm">
             <Text>Please try again.</Text>
