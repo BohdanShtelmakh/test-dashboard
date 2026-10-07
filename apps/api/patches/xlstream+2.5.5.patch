@@ -1,0 +1,182 @@
+diff --git a/node_modules/xlstream/lib/index.js b/node_modules/xlstream/lib/index.js
+--- a/node_modules/xlstream/lib/index.js
++++ b/node_modules/xlstream/lib/index.js
+@@ -118,7 +118,8 @@
+     }
+ }
+ function formatNumericValue(attr, value) {
+-    if (attr === 'inlineStr' || attr === 's') {
++    if (attr === 'b') return value === '1' || value === 1 || value === true;
++    if (attr === 'inlineStr' || attr === 's' || attr === 'str' || attr === 'd') {
+         return value;
+     }
+     return isNaN(value) ? value : Number(value);
+@@ -129,6 +130,7 @@
+     return new stream_1.Transform({
+         objectMode: true,
+         transform: function (chunk, encoding, done) {
++            try {
+             var _a, _b, _c, _d, _e;
+             var arr = [];
+             var formattedArr = [];
+@@ -236,6 +238,9 @@
+                     totalSheetSize: currentSheetSize,
+                 });
+             }
++            } catch (error) {
++                done(error);
++            }
+         },
+         flush: function (callback) {
+             if (dict) {
+@@ -292,7 +297,24 @@
+     });
+ }
+ exports.getXlsxStream = getXlsxStream;
+-function getXlsxStreams(options) {
++async function* getXlsxStreams(options) {
++    const resources = {};
++    const generator = getXlsxStreamsInternal(options, resources);
++    try {
++        for await (const stream of generator) {
++            resources.stream = stream;
++            yield stream;
++        }
++    } finally {
++        if (resources.stream) {
++            resources.stream.destroy();
++            await (0, promises_1.finished)(resources.stream, { cleanup: true }).catch(() => {});
++        }
++        await generator.return();
++        if (resources.zip) await resources.zip.close();
++    }
++}
++function getXlsxStreamsInternal(options, resources) {
+     return __asyncGenerator(this, arguments, function getXlsxStreams_1() {
+         function setupGenericData() {
+             return __awaiter(this, void 0, void 0, function () {
+@@ -743,6 +765,7 @@
+                             currentSheetProcessedSize = 0;
+                             currentSheetSize = zipEntries[sheetFullFileName].size;
+                             sheetTransformStream = getTransform(formats, strings, dict, withHeader, ignoreEmpty, numberFormat);
++                            resources.stream = sheetTransformStream;
+                             (0, stream_2.pipeline)(zipStream, function (chunks) {
+                                 return __asyncGenerator(this, arguments, function () {
+                                     var _a, chunks_1, chunks_1_1, chunk, e_6_1;
+@@ -792,11 +815,7 @@
+                             }, (0, sax_stream_1.default)({
+                                 strict: true,
+                                 tag: ['x:row', 'row']
+-                            }), sheetTransformStream, function () {
+-                                if (currentSheetIndex + 1 === options.sheets.length) {
+-                                    zip.close();
+-                                }
+-                            });
++                            }), sheetTransformStream, function () {});
+                             return [2 /*return*/, sheetTransformStream];
+                     }
+                 });
+@@ -815,6 +834,7 @@
+                         file: options.filePath,
+                         storeEntries: true
+                     });
++                    resources.zip = zip;
+                     zipEntries = {};
+                     currentSheetIndex = 0;
+                     return [4 /*yield*/, __await(setupGenericData())];
+@@ -863,79 +883,24 @@
+     });
+ }
+ exports.getXlsxStreams = getXlsxStreams;
+-function getWorksheets(options) {
+-    return __awaiter(this, void 0, void 0, function () {
+-        var sheets, zip, zipStream, saxStream;
+-        return __generator(this, function (_a) {
+-            switch (_a.label) {
+-                case 0:
+-                    sheets = [];
+-                    zip = new node_stream_zip_1.default.async({
+-                        file: options.filePath,
+-                        storeEntries: true,
+-                    });
+-                    return [4 /*yield*/, zip.stream('xl/workbook.xml')];
+-                case 1:
+-                    zipStream = _a.sent();
+-                    if (options.encoding) {
+-                        zipStream.setEncoding(options.encoding);
+-                    }
+-                    saxStream = (0, sax_stream_1.default)({
+-                        strict: true,
+-                        tag: ['x:sheet', 'sheet'],
+-                    });
+-                    return [4 /*yield*/, (0, promises_1.pipeline)(zipStream, saxStream, function (elements) {
+-                            return __asyncGenerator(this, arguments, function () {
+-                                var _a, elements_6, elements_6_1, element, e_7_1;
+-                                var _b, e_7, _c, _d;
+-                                return __generator(this, function (_e) {
+-                                    switch (_e.label) {
+-                                        case 0:
+-                                            _e.trys.push([0, 5, 6, 11]);
+-                                            _a = true, elements_6 = __asyncValues(elements);
+-                                            _e.label = 1;
+-                                        case 1: return [4 /*yield*/, __await(elements_6.next())];
+-                                        case 2:
+-                                            if (!(elements_6_1 = _e.sent(), _b = elements_6_1.done, !_b)) return [3 /*break*/, 4];
+-                                            _d = elements_6_1.value;
+-                                            _a = false;
+-                                            element = _d;
+-                                            sheets.push({
+-                                                name: element.record.attribs.name,
+-                                                hidden: Boolean(element.record.attribs.state && element.record.attribs.state === 'hidden'),
+-                                            });
+-                                            _e.label = 3;
+-                                        case 3:
+-                                            _a = true;
+-                                            return [3 /*break*/, 1];
+-                                        case 4: return [3 /*break*/, 11];
+-                                        case 5:
+-                                            e_7_1 = _e.sent();
+-                                            e_7 = { error: e_7_1 };
+-                                            return [3 /*break*/, 11];
+-                                        case 6:
+-                                            _e.trys.push([6, , 9, 10]);
+-                                            if (!(!_a && !_b && (_c = elements_6.return))) return [3 /*break*/, 8];
+-                                            return [4 /*yield*/, __await(_c.call(elements_6))];
+-                                        case 7:
+-                                            _e.sent();
+-                                            _e.label = 8;
+-                                        case 8: return [3 /*break*/, 10];
+-                                        case 9:
+-                                            if (e_7) throw e_7.error;
+-                                            return [7 /*endfinally*/];
+-                                        case 10: return [7 /*endfinally*/];
+-                                        case 11: return [2 /*return*/];
+-                                    }
+-                                });
+-                            });
+-                        })];
+-                case 2:
+-                    _a.sent();
+-                    return [2 /*return*/, sheets];
++async function getWorksheets(options) {
++    const zip = new node_stream_zip_1.default.async({ file: options.filePath, storeEntries: true });
++    const sheets = [];
++    try {
++        const zipStream = await zip.stream('xl/workbook.xml');
++        if (options.encoding) zipStream.setEncoding(options.encoding);
++        await (0, promises_1.pipeline)(zipStream, (0, sax_stream_1.default)({
++            strict: true, tag: ['x:sheet', 'sheet'],
++        }), async function (elements) {
++            for await (const element of elements) {
++                const attribs = element.record.attribs;
++                sheets.push({ name: attribs.name, hidden: attribs.state === 'hidden' });
+             }
+         });
+-    });
++        return sheets;
++    } finally {
++        await zip.close();
++    }
+ }
+ exports.getWorksheets = getWorksheets;
+ exports.excelNumberFormat = {

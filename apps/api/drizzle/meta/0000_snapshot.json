@@ -1,5 +1,5 @@
 {
-  "id": "f7346cb8-6b81-469e-86ba-1c3ddea034ad",
+  "id": "fd75ff3b-cdf0-4480-85d1-f8f0ef7c8698",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -535,6 +535,7 @@
       "schema": "public",
       "values": [
         "CSV",
+        "TSV",
         "XLSX"
       ]
     },

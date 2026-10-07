@@ -1,6 +1,6 @@
 CREATE TYPE "public"."dataset_column_type" AS ENUM('STRING', 'INTEGER', 'NUMBER', 'BOOLEAN', 'DATE', 'DATETIME');--> statement-breakpoint
 CREATE TYPE "public"."dataset_origin" AS ENUM('FILE', 'GENERATED');--> statement-breakpoint
-CREATE TYPE "public"."source_file_format" AS ENUM('CSV', 'XLSX');--> statement-breakpoint
+CREATE TYPE "public"."source_file_format" AS ENUM('CSV', 'TSV', 'XLSX');--> statement-breakpoint
 CREATE TYPE "public"."widget_type" AS ENUM('LINE', 'BAR', 'STACKED_BAR', 'PIE', 'TEXT');--> statement-breakpoint
 CREATE TABLE "source_files" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
