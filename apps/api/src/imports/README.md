@@ -91,4 +91,8 @@ to a disposable schema, verify counts/reuse/normalized keys/sequential indexes,
 and test batch rollback and both unique races without altering development data.
 Normal unit tests require no PostgreSQL.
 
-No controllers, uploads, widgets, frontend changes, or background jobs are added.
+The development seed also creates three initial widgets through the separate
+widget seed helper, using the persisted import results. Their config and
+idempotency behavior are documented in `../widgets/README.md`.
+The import pipeline exposes no HTTP controllers or uploads; no frontend changes
+or background jobs are included.

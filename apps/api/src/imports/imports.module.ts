@@ -23,6 +23,7 @@ import { ImportService } from './import.service.js';
     ColumnKeyNormalizer,
     SchemaInferrer,
     ValueNormalizer,
+    SchemaRegistry,
   ],
 })
 export class ImportsModule {}

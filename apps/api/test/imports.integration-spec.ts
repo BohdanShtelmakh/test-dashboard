@@ -21,6 +21,10 @@ import { SchemaRegistry } from '../src/imports/schema-registry.js';
 import { SchemaInferrer } from '../src/imports/schema-inferrer.js';
 import type { InferredColumn } from '../src/imports/import.types.js';
 import type { ParsedDataset } from '../src/imports/parsing/parser.types.js';
+import {
+  INITIAL_WIDGET_IDS,
+  seedInitialWidgets,
+} from '../src/database/seed-widgets.js';
 
 const assignment = (name: string) =>
   fileURLToPath(new URL(`../../../data/${name}`, import.meta.url));
@@ -190,6 +194,82 @@ describe('import pipeline (database integration)', () => {
       );
     }
     expect(parse).not.toHaveBeenCalled();
+    expect(await counts()).toMatchObject({ files: 2, datasets: 3, rows: 222 });
+  });
+
+  it('seeds exactly three deterministic widgets and preserves existing state on rerun', async () => {
+    const csvResult = await importer.importFile({
+      filePath: assignment('stacked-bar.csv'),
+      originalName: 'stacked-bar.csv',
+      format: 'CSV',
+    });
+    const xlsxResult = await importer.importFile({
+      filePath: assignment('line-and-pie.xlsx'),
+      originalName: 'line-and-pie.xlsx',
+      format: 'XLSX',
+    });
+    await seedInitialWidgets(database, csvResult, xlsxResult);
+    const widgets = await database.db
+      .select()
+      .from(schema.widgets)
+      .orderBy(asc(schema.widgets.id));
+    expect(widgets.map((widget) => widget.id)).toEqual(
+      Object.values(INITIAL_WIDGET_IDS),
+    );
+    expect(widgets.map((widget) => widget.type)).toEqual([
+      'LINE',
+      'PIE',
+      'STACKED_BAR',
+    ]);
+    const names = ['line chart data', 'pie chart data', 'stacked-bar'];
+    const fields = [
+      ['date', 'result', 'campaign'],
+      ['campaign', 'result'],
+      ['brand', 'positive', 'neutral', 'negative'],
+    ];
+    for (const [index, widget] of widgets.entries()) {
+      const [dataset] = await database.db
+        .select()
+        .from(schema.datasets)
+        .where(eq(schema.datasets.id, widget.datasetId!));
+      expect(dataset.name).toBe(names[index]);
+      const columns = await database.db
+        .select()
+        .from(schema.datasetColumns)
+        .where(eq(schema.datasetColumns.schemaId, dataset.schemaId));
+      for (const field of fields[index])
+        expect(columns.map((column) => column.key)).toContain(field);
+    }
+    await database.db
+      .update(schema.widgets)
+      .set({
+        title: 'Edited by user',
+        config: { xKey: 'date', valueKey: 'result' },
+      })
+      .where(eq(schema.widgets.id, INITIAL_WIDGET_IDS.line));
+    const before = await database.db
+      .select()
+      .from(schema.widgets)
+      .orderBy(asc(schema.widgets.id));
+    await seedInitialWidgets(
+      database,
+      await importer.importFile({
+        filePath: assignment('stacked-bar.csv'),
+        originalName: 'stacked-bar.csv',
+        format: 'CSV',
+      }),
+      await importer.importFile({
+        filePath: assignment('line-and-pie.xlsx'),
+        originalName: 'line-and-pie.xlsx',
+        format: 'XLSX',
+      }),
+    );
+    expect(
+      await database.db
+        .select()
+        .from(schema.widgets)
+        .orderBy(asc(schema.widgets.id)),
+    ).toEqual(before);
     expect(await counts()).toMatchObject({ files: 2, datasets: 3, rows: 222 });
   });
 

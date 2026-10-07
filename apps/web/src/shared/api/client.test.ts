@@ -41,4 +41,9 @@ describe('apiFetch', () => {
     await expect(apiFetch('/example')).rejects.toThrow('VITE_API_URL is required')
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('supports successful responses with no body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    await expect(apiFetch<void>('/example', { method: 'DELETE' })).resolves.toBeUndefined()
+  })
 })
