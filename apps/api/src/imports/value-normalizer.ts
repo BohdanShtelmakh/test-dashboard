@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { assertRowWidth, columnWidth } from './column-validation.js';
 import type { InferredColumn } from './import.types.js';
 import type { RawCellValue } from './parsing/parser.types.js';
+import { rawCell, xlsxDateValue } from './xlsx-cell-values.js';
 import {
   booleanValue,
   dateOnlyValue,
@@ -24,6 +25,8 @@ function normalizeValue(
   value: RawCellValue | undefined,
 ): unknown {
   if (isEmpty(value)) return null;
+  const xlsxDate = xlsxDateValue(value);
+  value = rawCell(value);
   switch (column.type) {
     case 'INTEGER': {
       const numeric = numericValue(value);
@@ -41,6 +44,7 @@ function normalizeValue(
       break;
     }
     case 'DATE': {
+      if (xlsxDate?.type === 'DATE') return xlsxDate.iso;
       const date = dateOnlyValue(value);
       if (date !== undefined) return date;
       if (value instanceof Date && Number.isFinite(value.getTime())) {
@@ -50,6 +54,10 @@ function normalizeValue(
       break;
     }
     case 'DATETIME': {
+      if (xlsxDate)
+        return xlsxDate.type === 'DATE'
+          ? `${xlsxDate.iso}T00:00:00.000Z`
+          : xlsxDate.iso;
       const datetime = datetimeValue(value);
       if (datetime !== undefined) return datetime;
       const date = dateOnlyValue(value);
@@ -57,6 +65,7 @@ function normalizeValue(
       break;
     }
     case 'STRING':
+      if (xlsxDate) return xlsxDate.iso;
       if (!(value instanceof Date)) return String(value);
       if (Number.isFinite(value.getTime())) return value.toISOString();
       break;

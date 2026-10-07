@@ -3,6 +3,10 @@ import { createRequire } from 'node:module';
 import { getXlsxStreams } from 'xlstream';
 import { XlsxParser } from './xlsx.parser.js';
 import type { ParseFileInput, RawCellValue } from './parser.types.js';
+import { rawCell } from '../xlsx-cell-values.js';
+import { ColumnKeyNormalizer } from '../column-key-normalizer.js';
+import { SchemaInferrer } from '../schema-inferrer.js';
+import { ValueNormalizer } from '../value-normalizer.js';
 
 vi.mock('xlstream', async () => {
   const original = await vi.importActual<typeof import('xlstream')>('xlstream');
@@ -36,7 +40,7 @@ describe('XlsxParser', () => {
       for await (const row of dataset.rows) rows.push(row);
       if (dataset.sheetName === 'Duplicates') {
         expect(dataset.headers).toEqual(['Result', 'Result', 'Note']);
-        expect(rows).toEqual([
+        expect(rows.map((row) => row.map(rawCell))).toEqual([
           [10, 20.5, '  spaced  '],
           [null, 30],
           [true, false, '123'],
@@ -73,13 +77,47 @@ describe('XlsxParser', () => {
       let count = 0;
       for await (const row of dataset.rows) {
         expect(row.length).toBe(dataset.headers.length);
-        expect(typeof row.at(-1)).toBe('number');
+        expect(typeof rawCell(row.at(-1))).toBe('number');
         count++;
       }
       rowCounts.push(count);
     }
     expect(names).toEqual(['line chart data', 'pie chart data']);
     expect(rowCounts).toEqual([212, 5]);
+  });
+
+  it('preserves assignment date formatting through inference and ISO normalization', async () => {
+    for await (const dataset of parser.parse({
+      filePath: fileURLToPath(
+        new URL('../../../../../data/line-and-pie.xlsx', import.meta.url),
+      ),
+      originalName: 'line-and-pie.xlsx',
+      format: 'XLSX',
+    })) {
+      const rows: RawCellValue[][] = [];
+      for await (const row of dataset.rows) rows.push(row);
+      if (dataset.name !== 'line chart data') continue;
+      expect(rows[0][2]).toEqual({
+        kind: 'xlsx',
+        raw: 45593,
+        formatted: '10/28/2024',
+      });
+      const columns = new SchemaInferrer().infer(
+        new ColumnKeyNormalizer().normalize(dataset.headers),
+        rows,
+      );
+      expect(columns[2]).toMatchObject({ key: 'date', type: 'DATE' });
+      expect(columns[3]).toMatchObject({ key: 'result', type: 'INTEGER' });
+      const values = rows.map((row) =>
+        new ValueNormalizer().normalize(columns, row),
+      );
+      expect(values).toHaveLength(212);
+      expect(values[0].date).toBe('2024-10-28');
+      for (const value of values) {
+        expect(value.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(typeof value.result).toBe('number');
+      }
+    }
   });
 
   it.each(['malformed-row.xlsx', 'malformed-xml.xlsx'])(

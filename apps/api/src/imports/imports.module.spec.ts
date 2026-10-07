@@ -4,6 +4,7 @@ import { ImportsModule } from './imports.module.js';
 import { ParserRegistry } from './parsing/parser-registry.js';
 import { SchemaInferrer } from './schema-inferrer.js';
 import { ValueNormalizer } from './value-normalizer.js';
+import { ImportService } from './import.service.js';
 
 describe('ImportsModule', () => {
   it('exports the parsing and normalization services through Nest without a database', async () => {
@@ -26,7 +27,10 @@ describe('ImportsModule', () => {
           ) => ({ registry, keys, inferrer, values }),
         },
       ],
-    }).compile();
+    })
+      .overrideProvider(ImportService)
+      .useValue({})
+      .compile();
     try {
       const pipeline = module.get<{
         registry: ParserRegistry;

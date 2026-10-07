@@ -6,7 +6,15 @@ export interface ParseFileInput {
   format: SupportedFileFormat;
 }
 
-export type RawCellValue = string | number | boolean | Date | null;
+export type ScalarCellValue = string | number | boolean | Date | null;
+
+export interface XlsxCellValue {
+  kind: 'xlsx';
+  raw: ScalarCellValue;
+  formatted: ScalarCellValue;
+}
+
+export type RawCellValue = ScalarCellValue | XlsxCellValue;
 
 /** Single-pass: consume or close rows before advancing to the next dataset. */
 export interface ParsedDataset {

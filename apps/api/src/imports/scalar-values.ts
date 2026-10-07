@@ -1,6 +1,8 @@
 import type { RawCellValue } from './parsing/parser.types.js';
+import { rawCell } from './xlsx-cell-values.js';
 
 export function isEmpty(value: RawCellValue | undefined): boolean {
+  value = rawCell(value);
   return (
     value === null ||
     value === undefined ||
@@ -11,6 +13,7 @@ export function isEmpty(value: RawCellValue | undefined): boolean {
 export function numericValue(
   value: RawCellValue | undefined,
 ): { value: number; type: 'INTEGER' | 'NUMBER' } | undefined {
+  value = rawCell(value);
   if (typeof value !== 'number' && typeof value !== 'string') return undefined;
   const text = typeof value === 'string' ? value.trim() : undefined;
   // Reject leading-zero identifiers, thousands separators, hex, and loose coercions.
@@ -37,6 +40,7 @@ export function numericValue(
 export function booleanValue(
   value: RawCellValue | undefined,
 ): boolean | undefined {
+  value = rawCell(value);
   if (typeof value === 'boolean') return value;
   if (typeof value !== 'string') return undefined;
   const text = value.trim().toLowerCase();
@@ -48,6 +52,7 @@ export function booleanValue(
 export function dateOnlyValue(
   value: RawCellValue | undefined,
 ): string | undefined {
+  value = rawCell(value);
   if (typeof value !== 'string') return undefined;
   const text = value.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return undefined;
@@ -61,6 +66,7 @@ export function dateOnlyValue(
 export function datetimeValue(
   value: RawCellValue | undefined,
 ): string | undefined {
+  value = rawCell(value);
   if (value instanceof Date)
     return Number.isFinite(value.getTime()) ? value.toISOString() : undefined;
   if (typeof value !== 'string') return undefined;

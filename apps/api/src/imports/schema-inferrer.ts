@@ -6,6 +6,7 @@ import type {
   NormalizedColumn,
 } from './import.types.js';
 import type { RawCellValue } from './parsing/parser.types.js';
+import { xlsxDateValue } from './xlsx-cell-values.js';
 import {
   booleanValue,
   dateOnlyValue,
@@ -17,6 +18,8 @@ import {
 export const DEFAULT_SCHEMA_SAMPLE_LIMIT = 200;
 
 function valueType(value: RawCellValue | undefined): InferredColumnType {
+  const xlsxDate = xlsxDateValue(value);
+  if (xlsxDate) return xlsxDate.type;
   if (booleanValue(value) !== undefined) return 'BOOLEAN';
   const numeric = numericValue(value);
   if (numeric) return numeric.type;

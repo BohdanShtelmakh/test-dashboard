@@ -7,22 +7,38 @@ import type {
   ParseFileInput,
   ParsedDataset,
   RawCellValue,
+  ScalarCellValue,
   SupportedFileFormat,
 } from './parser.types.js';
 
-function rawValues(record: { raw: { arr: unknown[] } }): RawCellValue[] {
-  return Array.from(record.raw.arr, (value): RawCellValue => {
-    if (value === undefined || value === null) return null;
-    if (
-      typeof value === 'string' ||
-      typeof value === 'number' ||
-      typeof value === 'boolean' ||
-      value instanceof Date
-    ) {
-      return value;
-    }
-    throw new Error('Unsupported raw XLSX cell value');
-  });
+interface XlsxRecord {
+  raw: { arr: unknown[] };
+  formatted: { arr: unknown[] };
+}
+
+function scalarValue(value: unknown): ScalarCellValue {
+  if (value === undefined || value === null) return null;
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value instanceof Date
+  ) {
+    return value;
+  }
+  throw new Error('Unsupported raw XLSX cell value');
+}
+
+function rawValues(record: XlsxRecord): ScalarCellValue[] {
+  return Array.from(record.raw.arr, scalarValue);
+}
+
+function cellValues(record: XlsxRecord): RawCellValue[] {
+  return rawValues(record).map((raw, position) => ({
+    kind: 'xlsx',
+    raw,
+    formatted: scalarValue(record.formatted.arr[position]),
+  }));
 }
 
 @Injectable()
@@ -56,11 +72,11 @@ export class XlsxParser implements FileParser {
         const sheetName = sheets[sheetIndex++].name;
         const records = stream[
           Symbol.asyncIterator
-        ]() as AsyncIterableIterator<{ raw: { arr: unknown[] } }>;
+        ]() as AsyncIterableIterator<XlsxRecord>;
         let rowsClosed = false;
         async function* rows(): AsyncGenerator<RawCellValue[]> {
           try {
-            for await (const record of records) yield rawValues(record);
+            for await (const record of records) yield cellValues(record);
           } catch (cause) {
             throw fileParseError(cause, input);
           } finally {
