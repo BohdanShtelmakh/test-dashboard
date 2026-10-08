@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseService } from './database.service.js';
 import { datasetColumns, datasets, widgets } from './schema/index.js';
-import type { ImportFileResult } from '../imports/import.types.js';
+import type { ImportFileResult } from '../imports/import.contract.js';
 import { validateChartConfig } from '../widgets/widget-config.js';
 import type { ChartConfigMap } from '../widgets/widgets.types.js';
 

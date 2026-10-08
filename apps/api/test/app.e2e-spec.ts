@@ -1,11 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 
-describe('AppController (e2e)', () => {
+describe('Application routes (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
@@ -18,11 +17,14 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/api (GET)', () => {
+  it('returns 404 for the removed starter endpoint', () => {
     return request(app.getHttpServer())
       .get('/api')
-      .expect(200)
-      .expect('Hello World!');
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.statusCode).toBe(404);
+        expect(body.error).toBe('Not Found');
+      });
   });
 
   afterEach(async () => {

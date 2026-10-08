@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
+import { extname } from 'node:path';
+import type { SupportedFileFormat } from './parsing/parser.contract.js';
 
 export async function fileChecksum(
   filePath: string,
@@ -17,4 +19,26 @@ export async function fileChecksum(
   if (bytes !== metadata.size)
     throw new Error('File size changed while hashing');
   return { checksum: hash.digest('hex'), size: metadata.size };
+}
+
+export function fileFormat(filePath: string): SupportedFileFormat | undefined {
+  switch (extname(filePath).toLowerCase()) {
+    case '.csv':
+      return 'CSV';
+    case '.tsv':
+      return 'TSV';
+    case '.xlsx':
+      return 'XLSX';
+    default:
+      return undefined;
+  }
+}
+
+export function detectFileFormat(filePath: string): SupportedFileFormat {
+  const format = fileFormat(filePath);
+  if (!format)
+    throw new Error(
+      'Unsupported file extension; expected .csv, .tsv, or .xlsx',
+    );
+  return format;
 }

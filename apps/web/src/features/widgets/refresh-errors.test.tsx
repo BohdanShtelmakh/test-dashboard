@@ -1,6 +1,7 @@
 import { MantineProvider } from '@mantine/core'
 import { renderToString } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiConfigurationError } from '../../shared/api/client.ts'
 import { DashboardPage } from '../../pages/DashboardPage.tsx'
 import { WidgetCard } from './WidgetCard.tsx'
 import type { WidgetDetail, WidgetSummary } from './widgets.types.ts'
@@ -14,6 +15,7 @@ const state = vi.hoisted(() => ({
     refetch: vi.fn(),
   },
   list: {
+    error: null as Error | null,
     data: undefined as WidgetSummary[] | undefined,
     isError: true,
     isPending: false,
@@ -53,6 +55,7 @@ const render = (element: React.ReactNode) =>
 beforeEach(() => {
   state.detail.data = undefined
   state.list.data = undefined
+  state.list.error = null
 })
 
 describe('background refresh errors', () => {
@@ -82,4 +85,15 @@ describe('background refresh errors', () => {
     expect(html).toContain('Unable to load the dashboard')
     expect(html).not.toContain('Saved note')
   })
+})
+
+it('shows a safe message for missing API configuration without offering a retry', () => {
+  state.list.error = new ApiConfigurationError()
+  const html = render(<DashboardPage />)
+  expect(html).toContain('The dashboard is temporarily unavailable. Please contact support.')
+  expect(html).not.toContain('VITE_API_URL')
+  expect(html).not.toContain('.env')
+  expect(html).not.toContain('API configuration is missing')
+  expect(html).not.toContain('Retry dashboard')
+  expect(html).not.toContain('Please try again.')
 })

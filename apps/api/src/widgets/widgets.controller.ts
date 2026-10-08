@@ -43,7 +43,7 @@ export class WidgetsController {
     )
     body: CreateWidgetDto,
   ): Promise<WidgetSummary> {
-    return this.widgets.create(body.type);
+    return this.widgets.create(body.type, body.text);
   }
 
   @Patch(':id')

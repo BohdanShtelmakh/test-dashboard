@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiFetch } from './client.ts'
+import { ApiConfigurationError, ApiError, apiFetch } from './client.ts'
 
 describe('apiFetch', () => {
   beforeEach(() => {
@@ -38,7 +38,9 @@ describe('apiFetch', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(apiFetch('/example')).rejects.toThrow('VITE_API_URL is required')
+    const request = apiFetch('/example')
+    await expect(request).rejects.toBeInstanceOf(ApiConfigurationError)
+    await expect(request).rejects.toThrow('API configuration is missing')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

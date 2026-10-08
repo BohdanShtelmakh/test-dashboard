@@ -15,12 +15,12 @@ import { AppModule } from '../src/app.module.js';
 import { DatabaseService } from '../src/database/database.service.js';
 import * as schema from '../src/database/schema/index.js';
 import { ImportService } from '../src/imports/import.service.js';
-import { ImportError } from '../src/imports/import.error.js';
+import { ImportError } from '../src/imports/import.contract.js';
 import { ParserRegistry } from '../src/imports/parsing/parser-registry.js';
-import { SchemaRegistry } from '../src/imports/schema-registry.js';
-import { SchemaInferrer } from '../src/imports/schema-inferrer.js';
-import type { InferredColumn } from '../src/imports/import.types.js';
-import type { ParsedDataset } from '../src/imports/parsing/parser.types.js';
+import { SchemaRegistry } from '../src/database/dataset-persistence.js';
+import { SchemaInferrer } from '../src/imports/data-normalization.js';
+import type { InferredColumn } from '../src/database/dataset.contract.js';
+import type { ParsedDataset } from '../src/imports/parsing/parser.contract.js';
 import {
   INITIAL_WIDGET_IDS,
   seedInitialWidgets,
@@ -106,6 +106,28 @@ describe('import pipeline (database integration)', () => {
     await writeFile(filePath, contents);
     return { filePath, originalName: name, format: 'CSV' as const };
   }
+
+  it('detects TSV automatically and rejects unsupported extensions without writes', async () => {
+    const filePath = join(directory, 'extra.TSV');
+    await writeFile(filePath, 'Name\tValue\nExample\t7\n');
+    const result = await importer.importFile({
+      filePath,
+      originalName: 'extra.TSV',
+    });
+    expect(result.datasets[0].rowCount).toBe(1);
+    const before = await counts();
+    await expect(
+      importer.importFile({
+        filePath: join(directory, 'invalid.json'),
+        originalName: 'invalid.json',
+      }),
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({
+        message: 'Unsupported file extension; expected .csv, .tsv, or .xlsx',
+      }),
+    });
+    expect(await counts()).toEqual(before);
+  });
 
   async function counts() {
     const result = await database.db.execute(sql`
@@ -201,12 +223,10 @@ describe('import pipeline (database integration)', () => {
     const csvResult = await importer.importFile({
       filePath: assignment('stacked-bar.csv'),
       originalName: 'stacked-bar.csv',
-      format: 'CSV',
     });
     const xlsxResult = await importer.importFile({
       filePath: assignment('line-and-pie.xlsx'),
       originalName: 'line-and-pie.xlsx',
-      format: 'XLSX',
     });
     await seedInitialWidgets(database, csvResult, xlsxResult);
     const widgets = await database.db
@@ -256,12 +276,10 @@ describe('import pipeline (database integration)', () => {
       await importer.importFile({
         filePath: assignment('stacked-bar.csv'),
         originalName: 'stacked-bar.csv',
-        format: 'CSV',
       }),
       await importer.importFile({
         filePath: assignment('line-and-pie.xlsx'),
         originalName: 'line-and-pie.xlsx',
-        format: 'XLSX',
       }),
     );
     expect(

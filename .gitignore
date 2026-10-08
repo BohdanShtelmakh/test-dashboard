@@ -26,3 +26,8 @@ apps/api/src/generated/prisma/
 
 # Vite
 apps/web/dist/
+# Browser acceptance artifacts
+playwright-report/
+test-results/
+output/playwright/
+.playwright-cli/

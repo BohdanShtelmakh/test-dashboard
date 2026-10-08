@@ -15,10 +15,13 @@ import {
   widgets,
 } from '../database/schema/index.js';
 import { validateChartConfig } from './widget-config.js';
-import type { WidgetDetail, WidgetSummary } from './widgets.types.js';
-import type { WidgetType } from './widgets.types.js';
+import type {
+  WidgetDetail,
+  WidgetSummary,
+  WidgetType,
+} from './widgets.types.js';
 import { GeneratedDatasetFactory } from './generated-dataset.factory.js';
-import { SchemaRegistry } from '../imports/schema-registry.js';
+import { SchemaRegistry } from '../database/dataset-persistence.js';
 
 @Injectable()
 export class WidgetsService {
@@ -36,13 +39,15 @@ export class WidgetsService {
     return new InternalServerErrorException(message, { cause: error });
   }
 
-  async create(type: WidgetType): Promise<WidgetSummary> {
+  async create(type: WidgetType, text?: string): Promise<WidgetSummary> {
+    if (type !== 'TEXT' && text !== undefined)
+      throw new BadRequestException('Only TEXT widgets accept initial text');
     try {
       return await this.database.db.transaction(async (tx) => {
         if (type === 'TEXT') {
           const [widget] = await tx
             .insert(widgets)
-            .values({ type, title: 'Text', text: '', config: {} })
+            .values({ type, title: 'Text', text: text ?? '', config: {} })
             .returning({
               id: widgets.id,
               type: widgets.type,
@@ -169,65 +174,72 @@ export class WidgetsService {
 
   async findOne(id: string): Promise<WidgetDetail> {
     try {
-      const [record] = await this.database.db
-        .select({
-          widget: {
-            id: widgets.id,
-            type: widgets.type,
-            title: widgets.title,
-            config: widgets.config,
-            text: widgets.text,
-          },
-          dataset: {
-            id: datasets.id,
-            schemaId: datasets.schemaId,
-            name: datasets.name,
-            rowCount: datasets.rowCount,
-          },
-        })
-        .from(widgets)
-        .leftJoin(datasets, eq(widgets.datasetId, datasets.id))
-        .where(eq(widgets.id, id));
-      if (!record) throw new NotFoundException('Widget not found');
-      const { widget, dataset } = record;
-      const base = { id: widget.id, title: widget.title };
-      if (widget.type === 'TEXT')
-        return { ...base, type: 'TEXT', text: widget.text };
-      if (!dataset)
-        throw new InternalServerErrorException('Widget dataset is unavailable');
-      const columns = await this.database.db
-        .select({
-          name: datasetColumns.name,
-          key: datasetColumns.key,
-          type: datasetColumns.type,
-          nullable: datasetColumns.nullable,
-          position: datasetColumns.position,
-        })
-        .from(datasetColumns)
-        .where(eq(datasetColumns.schemaId, dataset.schemaId))
-        .orderBy(asc(datasetColumns.position));
-      let chart;
-      try {
-        chart = validateChartConfig(widget.type, widget.config, columns);
-      } catch (error) {
-        throw this.unexpectedError('Invalid widget configuration', error);
-      }
-      const rows = await this.database.db
-        .select({ values: datasetRows.values })
-        .from(datasetRows)
-        .where(eq(datasetRows.datasetId, dataset.id))
-        .orderBy(asc(datasetRows.rowIndex));
-      return {
-        ...base,
-        ...chart,
-        dataset: {
-          id: dataset.id,
-          name: dataset.name,
-          rowCount: dataset.rowCount,
-          columns,
-          rows: rows.map((row) => row.values),
+      return await this.database.db.transaction(
+        async (tx) => {
+          const [record] = await tx
+            .select({
+              widget: {
+                id: widgets.id,
+                type: widgets.type,
+                title: widgets.title,
+                config: widgets.config,
+                text: widgets.text,
+              },
+              dataset: {
+                id: datasets.id,
+                schemaId: datasets.schemaId,
+                name: datasets.name,
+                rowCount: datasets.rowCount,
+              },
+            })
+            .from(widgets)
+            .leftJoin(datasets, eq(widgets.datasetId, datasets.id))
+            .where(eq(widgets.id, id));
+          if (!record) throw new NotFoundException('Widget not found');
+          const { widget, dataset } = record;
+          const base = { id: widget.id, title: widget.title };
+          if (widget.type === 'TEXT')
+            return { ...base, type: 'TEXT', text: widget.text };
+          if (!dataset)
+            throw new InternalServerErrorException(
+              'Widget dataset is unavailable',
+            );
+          const columns = await tx
+            .select({
+              name: datasetColumns.name,
+              key: datasetColumns.key,
+              type: datasetColumns.type,
+              nullable: datasetColumns.nullable,
+              position: datasetColumns.position,
+            })
+            .from(datasetColumns)
+            .where(eq(datasetColumns.schemaId, dataset.schemaId))
+            .orderBy(asc(datasetColumns.position));
+          let chart;
+          try {
+            chart = validateChartConfig(widget.type, widget.config, columns);
+          } catch (error) {
+            throw this.unexpectedError('Invalid widget configuration', error);
+          }
+          const rows = await tx
+            .select({ values: datasetRows.values })
+            .from(datasetRows)
+            .where(eq(datasetRows.datasetId, dataset.id))
+            .orderBy(asc(datasetRows.rowIndex));
+          return {
+            ...base,
+            ...chart,
+            dataset: {
+              id: dataset.id,
+              name: dataset.name,
+              rowCount: dataset.rowCount,
+              columns,
+              rows: rows.map((row) => row.values),
+            },
+          };
         },
-      };
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      );
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw this.unexpectedError('Unable to load widget', error);

@@ -3,14 +3,14 @@ import { createReadStream } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { parse } from 'csv-parse';
-import type { FileParser } from './file-parser.interface.js';
-import { fileParseError, ParserError } from './parser.error.js';
 import type {
+  FileParser,
   ParseFileInput,
   ParsedDataset,
   RawCellValue,
   SupportedFileFormat,
-} from './parser.types.js';
+} from './parser.contract.js';
+import { fileParseError, ParserError } from './parser.contract.js';
 
 @Injectable()
 export class DelimitedTextParser implements FileParser {

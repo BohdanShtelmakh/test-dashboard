@@ -1,10 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { datasetRows, datasets } from '../database/schema/index.js';
-import type { ImportTransaction } from './import-transaction.js';
-import type { InferredColumn } from './import.types.js';
-import type { RawCellValue } from './parsing/parser.types.js';
-import { ValueNormalizer } from './value-normalizer.js';
+import type {
+  DatabaseTransaction,
+  InferredColumn,
+} from '../database/dataset.contract.js';
+import type { RawCellValue } from './parsing/parser.contract.js';
+import { ValueNormalizer } from './data-normalization.js';
 
 export const DEFAULT_IMPORT_BATCH_SIZE = 500;
 
@@ -15,7 +17,7 @@ export class DatasetWriter {
   ) {}
 
   async write(
-    tx: ImportTransaction,
+    tx: DatabaseTransaction,
     datasetId: string,
     columns: readonly InferredColumn[],
     rows: AsyncIterable<RawCellValue[]>,

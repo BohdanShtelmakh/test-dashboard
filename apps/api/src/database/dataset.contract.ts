@@ -1,4 +1,23 @@
-import type { NormalizedColumn } from './import.types.js';
+import type { DatabaseService } from './database.service.js';
+
+export interface NormalizedColumn {
+  position: number;
+  name: string;
+  key: string;
+}
+
+export type InferredColumnType =
+  'STRING' | 'INTEGER' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'DATETIME';
+
+export interface InferredColumn extends NormalizedColumn {
+  type: InferredColumnType;
+  nullable: boolean;
+}
+
+// Persistence helpers require the caller's transaction, never the global client.
+export type DatabaseTransaction = Parameters<
+  Parameters<DatabaseService['db']['transaction']>[0]
+>[0];
 
 export function columnWidth(columns: readonly NormalizedColumn[]): number {
   const positions = new Set<number>();
@@ -26,12 +45,4 @@ export function columnWidth(columns: readonly NormalizedColumn[]): number {
     width = Math.max(width, column.position + 1);
   }
   return width;
-}
-
-export function assertRowWidth(row: readonly unknown[], width: number): void {
-  if (row.length > width) {
-    throw new RangeError(
-      `Row has ${row.length} cells but columns cover only ${width} positions`,
-    );
-  }
 }

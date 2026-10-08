@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileChecksum } from './file-checksum.js';
+import { fileChecksum, detectFileFormat } from './file-utils.js';
 
 describe('fileChecksum', () => {
   let directory: string;
@@ -37,5 +37,18 @@ describe('fileChecksum', () => {
       fileChecksum(join(directory, 'missing')),
     ).rejects.toMatchObject({ code: 'ENOENT' });
     await expect(fileChecksum(directory)).rejects.toThrow('regular file');
+  });
+});
+
+describe('file format detection', () => {
+  it.each([
+    ['data.csv', 'CSV'],
+    ['data.TsV', 'TSV'],
+    ['data.XLSX', 'XLSX'],
+  ])('detects %s', (name, expected) => {
+    expect(detectFileFormat(name)).toBe(expected);
+  });
+  it.each(['data', 'data.json', 'data.xlsx.zip'])('rejects %s', (name) => {
+    expect(() => detectFileFormat(name)).toThrow('Unsupported file extension');
   });
 });

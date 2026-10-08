@@ -20,6 +20,9 @@ export function LineWidget({
   widget: Extract<WidgetDetail, { type: 'LINE' }>
 }) {
   const { data, series } = pivotLineData(widget.dataset, widget.config)
+  const xType = widget.dataset.columns.find(
+    (column) => column.key === widget.config.xKey,
+  )?.type
   if (!hasNumericData(data))
     return <Text c="dimmed">No valid chart data to display.</Text>
   return (
@@ -31,7 +34,7 @@ export function LineWidget({
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="x"
-          tickFormatter={axisLabel}
+          tickFormatter={(value) => axisLabel(value, xType)}
           tick={{ fontSize: 11 }}
           minTickGap={24}
         />

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { NormalizedColumn } from './import.types.js';
+import type { NormalizedColumn } from '../database/dataset.contract.js';
 
 @Injectable()
 export class ColumnKeyNormalizer {

@@ -1,53 +1,68 @@
 import { Test } from '@nestjs/testing';
+import { DatabaseService } from '../database/database.service.js';
 import { ColumnKeyNormalizer } from './column-key-normalizer.js';
 import { ImportsModule } from './imports.module.js';
 import { ParserRegistry } from './parsing/parser-registry.js';
-import { SchemaInferrer } from './schema-inferrer.js';
-import { ValueNormalizer } from './value-normalizer.js';
+import { SchemaInferrer, ValueNormalizer } from './data-normalization.js';
 import { ImportService } from './import.service.js';
 
 describe('ImportsModule', () => {
-  it('exports the parsing and normalization services through Nest without a database', async () => {
+  it('exports ImportService while keeping the parsing pipeline functional internally', async () => {
+    const importer = { importFile: vi.fn() };
     const module = await Test.createTestingModule({
       imports: [ImportsModule],
       providers: [
         {
-          provide: 'pipeline',
-          inject: [
-            ParserRegistry,
-            ColumnKeyNormalizer,
-            SchemaInferrer,
-            ValueNormalizer,
-          ],
-          useFactory: (
-            registry: ParserRegistry,
-            keys: ColumnKeyNormalizer,
-            inferrer: SchemaInferrer,
-            values: ValueNormalizer,
-          ) => ({ registry, keys, inferrer, values }),
+          provide: 'consumer',
+          inject: [ImportService],
+          useFactory: (service: ImportService) => service,
         },
       ],
     })
-      .overrideProvider(ImportService)
+      .overrideProvider(DatabaseService)
       .useValue({})
+      .overrideProvider(ImportService)
+      .useValue(importer)
       .compile();
     try {
-      const pipeline = module.get<{
-        registry: ParserRegistry;
-        keys: ColumnKeyNormalizer;
-        inferrer: SchemaInferrer;
-        values: ValueNormalizer;
-      }>('pipeline');
-      expect(pipeline.registry.getParser('CSV')).toBe(
-        pipeline.registry.getParser('TSV'),
-      );
-      const columns = pipeline.keys.normalize(['Campaign', 'Date', 'Result']);
+      expect(module.get('consumer')).toBe(importer);
+      const internal = module.select(ImportsModule);
+      const registry = internal.get(ParserRegistry, { strict: true });
+      expect(registry.getParser('CSV')).toBe(registry.getParser('TSV'));
+      const columns = internal
+        .get(ColumnKeyNormalizer, { strict: true })
+        .normalize(['Campaign', 'Date', 'Result']);
       const row = ['Nike', '2026-01-01', '15'];
+      const inferred = internal
+        .get(SchemaInferrer, { strict: true })
+        .infer(columns, [row]);
       expect(
-        pipeline.values.normalize(pipeline.inferrer.infer(columns, [row]), row),
+        internal
+          .get(ValueNormalizer, { strict: true })
+          .normalize(inferred, row),
       ).toEqual({ campaign: 'Nike', date: '2026-01-01', result: 15 });
     } finally {
       await module.close();
     }
+  });
+
+  it('does not expose normalization providers to importing modules', async () => {
+    await expect(
+      Test.createTestingModule({
+        imports: [ImportsModule],
+        providers: [
+          {
+            provide: 'consumer',
+            inject: [SchemaInferrer],
+            useFactory: (service: SchemaInferrer) => service,
+          },
+        ],
+      })
+        .overrideProvider(DatabaseService)
+        .useValue({})
+        .overrideProvider(ImportService)
+        .useValue({})
+        .compile(),
+    ).rejects.toThrow(/resolve dependencies/);
   });
 });

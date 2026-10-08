@@ -1,4 +1,4 @@
-import { Alert, Button, Modal, Select, Stack } from '@mantine/core'
+import { Alert, Button, Modal, Select, Stack, Textarea } from '@mantine/core'
 import { useState } from 'react'
 import { useCreateWidget } from './widgets.queries.ts'
 import type { WidgetType } from './widgets.types.ts'
@@ -18,10 +18,12 @@ export function CreateWidgetModal({
   onClose: () => void
 }) {
   const [type, setType] = useState<WidgetType>('LINE')
+  const [text, setText] = useState('')
   const mutation = useCreateWidget()
   function close() {
     if (!mutation.isPending) {
       mutation.reset()
+      setText('')
       onClose()
     }
   }
@@ -38,9 +40,10 @@ export function CreateWidgetModal({
         onSubmit={(event) => {
           event.preventDefault()
           if (!mutation.isPending)
-            mutation.mutate(type, {
+            mutation.mutate(type === 'TEXT' ? { type, text } : { type }, {
               onSuccess: () => {
                 mutation.reset()
+                setText('')
                 onClose()
               },
             })
@@ -58,6 +61,16 @@ export function CreateWidgetModal({
               if (option) setType(option.value)
             }}
           />
+          {type === 'TEXT' && (
+            <Textarea
+              label="Text content"
+              description="Optional. You can also edit it after creating the widget."
+              value={text}
+              onChange={(event) => setText(event.currentTarget.value)}
+              minRows={3}
+              disabled={mutation.isPending}
+            />
+          )}
           {mutation.isError && (
             <Alert color="red" role="alert">
               Unable to create the widget. Please try again.

@@ -24,6 +24,17 @@ describe('widget API functions', () => {
       ['http://localhost:3000/api/widgets/widget-id', { signal }],
     ])
   })
+  it('includes optional initial text in a TEXT creation request', async () => {
+    vi.stubEnv('VITE_API_URL', 'http://localhost:3000')
+    const fetch = vi.fn().mockResolvedValue(Response.json({ id: 'note' }))
+    vi.stubGlobal('fetch', fetch)
+    await createWidget({ type: 'TEXT', text: 'Initial note\nSecond line' })
+    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/widgets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'TEXT', text: 'Initial note\nSecond line' }),
+    })
+  })
   it('sends only the supported creation and edit fields and accepts DELETE 204', async () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost:3000')
     const fetch = vi
@@ -34,7 +45,7 @@ describe('widget API functions', () => {
           : Response.json({ id: 'widget' }),
       )
     vi.stubGlobal('fetch', fetch)
-    await createWidget('BAR')
+    await createWidget({ type: 'BAR' })
     await updateWidget('widget/id', 'Saved text')
     await expect(deleteWidget('widget/id')).resolves.toBeUndefined()
     expect(fetch.mock.calls).toEqual([

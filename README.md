@@ -34,7 +34,7 @@ Chart widgets reference persisted datasets; widget configuration maps dataset co
 
 Rows are processed incrementally, sampled for inference, and persisted in batches instead of accumulating entire worksheets in application row arrays. XLSX shared strings/styles may still be retained by the library, so memory usage is not perfectly constant. Schema fingerprints allow matching column schemas to be reused across datasets.
 
-See the [import pipeline](apps/api/src/imports/README.md), [backend widgets](apps/api/src/widgets/README.md), and [frontend widgets](apps/web/src/features/widgets/README.md) documentation for implementation details.
+See the [API README](apps/api/README.md) for import, persistence, widget, and parser-patch details, and the [web README](apps/web/README.md) for rendering, queries, and cache behavior.
 
 ## Prerequisites
 
@@ -50,7 +50,7 @@ Run all commands below from the repository root unless stated otherwise:
 npm ci
 ```
 
-This installs the locked workspace dependencies and applies the repository's required `xlstream` patch through the API install hook. See [patch documentation](apps/api/patches/README.md).
+This installs the locked workspace dependencies and applies the repository's required `xlstream` patch through the API install hook. See [patch documentation](apps/api/README.md#required-xlstream-patch).
 
 ## Environment variables
 
@@ -83,7 +83,15 @@ npm run db:migrate -w @test-dashboard/api
 npm run db:seed -w @test-dashboard/api
 ```
 
-The seed builds the API, programmatically imports `data/line-and-pie.xlsx` and `data/stacked-bar.csv`, and creates the three required initial widgets. A clean seed produces two source files, three datasets, and 222 rows. Rerunning is idempotent: existing file imports are reused and existing seeded widget state is preserved. Rerunning after deleting a seeded widget recreates that missing widget.
+The seed builds the API, imports all regular CSV/TSV/XLSX files directly in `data/` (case-insensitive extensions, sorted filenames), and creates the three required initial widgets. Additional files are imported without automatically creating widgets. The supplied filenames still select the required initial charts. With only the supplied files, a clean seed produces two source files, three datasets, and 222 rows. Rerunning is idempotent: existing file imports are reused and existing seeded widget state is preserved. Rerunning after deleting a seeded widget recreates that missing widget.
+
+To import an additional local file without creating widgets:
+
+```sh
+npm run db:import -w @test-dashboard/api -- data/additional.csv
+```
+
+Relative paths resolve from the directory where you invoke npm. Supported extensions are `.csv`, `.tsv`, and `.xlsx`; format detection is shared with the seed. Invalid imports fail without committing a partial file.
 
 Migrations are explicit; the application does not run schema synchronization at startup. PostgreSQL data persists in the `postgres_data` Docker volume. Run the seed on the host because the API image excludes the supplied data files.
 
@@ -150,7 +158,7 @@ The frontend is not containerized. Run `npm run dev:web` separately and use the 
 | `PATCH /api/widgets/:id` | Save a text widget with `{ "text": "..." }`. |
 | `DELETE /api/widgets/:id` | Delete a widget; returns 204. |
 
-Creation returns 201. Invalid input returns 400, missing widgets return 404, and unexpected errors return safe 500 responses. File importing is exposed as a backend service and seed workflow, not an HTTP upload endpoint.
+Creation returns 201. Invalid input returns 400, missing widgets return 404, and unexpected errors return safe 500 responses. File importing is exposed as a backend service and seed workflow, not an HTTP upload endpoint. The starter `/api` greeting has been removed; it returns 404.
 
 ## Testing and quality checks
 
@@ -168,11 +176,22 @@ npm run test:db -w @test-dashboard/api
 npm run test:e2e -w @test-dashboard/api
 ```
 
-Use a local development/test database. Import and widget API suites use disposable schemas; schema integration tests use rolled-back transactions against the migrated schema.
+Use a local development/test database. Import and widget API suites use disposable schemas; the focused database-constraint suite uses rolled-back transactions against the migrated schema.
+
+For the browser acceptance test, start local PostgreSQL and configure the API environment, then run:
+
+```sh
+npx playwright install chromium
+npm run test:e2e -w @test-dashboard/web
+```
+
+This starts dedicated API/frontend servers on ports 3001/5174. It checks the seeded charts, creation of all five types, per-widget loading/read errors, text-save failure/retry, persistence after reload, and deletion. The runner in `apps/api/test/run-browser-tests.ts` runs directly on Node 24 and is excluded from the production build. It applies committed migrations and runs the folder seed in a disposable schema, then removes that schema. Existing application data is retained. It uses the PostgreSQL connection from `apps/api/.env` unless `DATABASE_URL` is overridden; the database user must be able to create schemas. Browser artifacts are ignored.
 
 ## Assignment-specific notes
 
 Provided source values are not hardcoded: XLSX and CSV files are parsed programmatically. The XLSX contains separate line-chart and pie-chart worksheets, each persisted as its own dataset. New charts use randomized persisted data as required by the assignment; editing is implemented for text widgets. Dataset selection and chart field editing are outside this assignment implementation's scope.
+
+The API pool limits connection acquisition to five seconds; this is not a query execution timeout. Chart detail reads use a short read-only REPEATABLE READ transaction to avoid inconsistent data during concurrent deletion.
 
 ## Trade-offs
 

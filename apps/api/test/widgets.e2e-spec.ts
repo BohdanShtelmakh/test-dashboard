@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { asc, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
+import { vi } from 'vitest';
+import { WidgetsService } from '../src/widgets/widgets.service.js';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { DatabaseService } from '../src/database/database.service.js';
@@ -106,6 +108,32 @@ describe('widgets API (PostgreSQL e2e)', () => {
     if (admin) {
       await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
       await admin.end();
+    }
+  });
+
+  it('returns a complete snapshot when a generated widget is deleted during a read', async () => {
+    const widget = await create('LINE');
+    const expected = await detail(widget.id);
+    const transaction = database.db.transaction.bind(database.db);
+    const spy = vi.spyOn(database.db, 'transaction');
+    spy.mockImplementationOnce((callback, config) =>
+      transaction(async (tx) => {
+        // Establish the reader snapshot, then commit deletion on another connection.
+        await tx
+          .select({ id: schema.widgets.id })
+          .from(schema.widgets)
+          .where(eq(schema.widgets.id, widget.id));
+        await app.get(WidgetsService).delete(widget.id);
+        return callback(tx);
+      }, config),
+    );
+    try {
+      expect(await detail(widget.id)).toEqual(expected);
+      await request(app.getHttpServer())
+        .get(`/api/widgets/${widget.id}`)
+        .expect(404);
+    } finally {
+      spy.mockRestore();
     }
   });
 
@@ -333,6 +361,21 @@ describe('widgets API (PostgreSQL e2e)', () => {
     return result.rows[0];
   }
 
+  it.each(['Initial note\nSecond line', ''])(
+    'persists optional initial TEXT content %j',
+    async (text) => {
+      const before = await counts();
+      const response = await request(app.getHttpServer())
+        .post('/api/widgets')
+        .send({ type: 'TEXT', text })
+        .expect(201);
+      const widget = response.body as WidgetSummary;
+      expect(await detail(widget.id)).toEqual({ ...widget, text });
+      expect(await detail(widget.id)).toEqual({ ...widget, text });
+      expect(await counts()).toEqual({ ...before, widgets: 4 });
+    },
+  );
+
   it('creates TEXT without a dataset and updates its text and timestamp', async () => {
     const before = await counts();
     const widget = await create('TEXT');
@@ -508,6 +551,10 @@ describe('widgets API (PostgreSQL e2e)', () => {
       { type: 'OTHER' },
       { type: null },
       { type: 'TEXT', datasetId: randomUUID() },
+      { type: 'TEXT', text: 42 },
+      { type: 'TEXT', text: null },
+      { type: 'BAR', text: 'Not allowed on charts' },
+      { type: 'LINE', text: '' },
     ])
       await request(app.getHttpServer())
         .post('/api/widgets')

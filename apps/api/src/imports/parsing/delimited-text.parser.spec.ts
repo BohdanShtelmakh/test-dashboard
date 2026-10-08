@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DelimitedTextParser } from './delimited-text.parser.js';
-import type { ParseFileInput, RawCellValue } from './parser.types.js';
-import { ParserError } from './parser.error.js';
+import type { ParseFileInput, RawCellValue } from './parser.contract.js';
+import { ParserError } from './parser.contract.js';
 
 vi.mock('node:fs', async () => {
   const original = await vi.importActual<typeof import('node:fs')>('node:fs');

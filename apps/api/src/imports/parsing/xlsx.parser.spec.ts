@@ -2,11 +2,13 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { getXlsxStreams } from 'xlstream';
 import { XlsxParser } from './xlsx.parser.js';
-import type { ParseFileInput, RawCellValue } from './parser.types.js';
-import { rawCell } from '../xlsx-cell-values.js';
+import type { ParseFileInput, RawCellValue } from './parser.contract.js';
+import {
+  rawCell,
+  SchemaInferrer,
+  ValueNormalizer,
+} from '../data-normalization.js';
 import { ColumnKeyNormalizer } from '../column-key-normalizer.js';
-import { SchemaInferrer } from '../schema-inferrer.js';
-import { ValueNormalizer } from '../value-normalizer.js';
 
 vi.mock('xlstream', async () => {
   const original = await vi.importActual<typeof import('xlstream')>('xlstream');

@@ -2,17 +2,17 @@ import { apiFetch } from '../../shared/api/client.ts'
 import type {
   WidgetDetail,
   WidgetSummary,
-  WidgetType,
+  CreateWidgetInput,
 } from './widgets.types.ts'
 export function getWidgets(signal?: AbortSignal): Promise<WidgetSummary[]> {
   return apiFetch('/api/widgets', { signal })
 }
 
-export function createWidget(type: WidgetType): Promise<WidgetSummary> {
+export function createWidget(input: CreateWidgetInput): Promise<WidgetSummary> {
   return apiFetch('/api/widgets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type }),
+    body: JSON.stringify(input),
   })
 }
 export function updateWidget(

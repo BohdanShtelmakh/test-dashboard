@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { datasetColumns, datasetSchemas } from '../database/schema/index.js';
-import { columnWidth } from './column-validation.js';
-import type { ImportTransaction } from './import-transaction.js';
-import type { InferredColumn } from './import.types.js';
+import { datasetColumns, datasetSchemas } from './schema/index.js';
+import { columnWidth } from './dataset.contract.js';
+import type {
+  DatabaseTransaction,
+  InferredColumn,
+} from './dataset.contract.js';
 
 export function schemaFingerprint(columns: readonly InferredColumn[]): string {
   columnWidth(columns);
@@ -27,7 +29,7 @@ export function schemaFingerprint(columns: readonly InferredColumn[]): string {
 @Injectable()
 export class SchemaRegistry {
   async resolve(
-    tx: ImportTransaction,
+    tx: DatabaseTransaction,
     columns: readonly InferredColumn[],
   ): Promise<string> {
     const fingerprint = schemaFingerprint(columns);

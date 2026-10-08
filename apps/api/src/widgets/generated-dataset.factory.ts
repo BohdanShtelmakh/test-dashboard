@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
-import type { InferredColumn } from '../imports/import.types.js';
+import type { InferredColumn } from '../database/dataset.contract.js';
 import type { ChartWidgetType, ValidatedChartConfig } from './widgets.types.js';
 
 export interface GeneratedDatasetDefinition {

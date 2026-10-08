@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { finished } from 'node:stream/promises';
 import { getWorksheets, getXlsxStreams } from 'xlstream';
-import type { FileParser } from './file-parser.interface.js';
-import { fileParseError, ParserError } from './parser.error.js';
 import type {
+  FileParser,
   ParseFileInput,
   ParsedDataset,
   RawCellValue,
   ScalarCellValue,
   SupportedFileFormat,
-} from './parser.types.js';
+} from './parser.contract.js';
+import { fileParseError, ParserError } from './parser.contract.js';
 
 interface XlsxRecord {
   raw: { arr: unknown[] };

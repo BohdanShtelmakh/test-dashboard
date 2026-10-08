@@ -7,7 +7,7 @@ import { vi } from 'vitest';
 import type { DatabaseService } from '../database/database.service.js';
 import { WidgetsService } from './widgets.service.js';
 import { GeneratedDatasetFactory } from './generated-dataset.factory.js';
-import { SchemaRegistry } from '../imports/schema-registry.js';
+import { SchemaRegistry } from '../database/dataset-persistence.js';
 
 describe('WidgetsService errors', () => {
   afterEach(() => vi.restoreAllMocks());

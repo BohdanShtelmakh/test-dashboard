@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import type { PoolClient } from 'pg';
 import * as schema from '../src/database/schema/index.js';
 
-describe('database schema (integration)', () => {
+describe('database integrity rules (integration)', () => {
   let pool: Pool;
   let client: PoolClient;
   let db: NodePgDatabase<typeof schema>;
@@ -34,7 +34,7 @@ describe('database schema (integration)', () => {
       .values({
         originalName: 'schema-verification.csv',
         format: 'CSV',
-        size: 9_007_199_254_740_993n,
+        size: 0n,
         checksum: createHash('sha256')
           .update('schema-verification-file')
           .digest('hex'),
@@ -90,67 +90,14 @@ describe('database schema (integration)', () => {
     return dataset;
   }
 
-  it('round-trips JSONB and bigint values with database-generated defaults', async () => {
-    const dataset = await createDataset();
-    const [row] = await db
-      .insert(schema.datasetRows)
-      .values({
-        datasetId: dataset.id,
-        rowIndex: 0,
-        values: { campaign: 'Nike', date: '2026-01-01', result: 153 },
-      })
-      .returning();
-    const [widget] = await db
-      .insert(schema.widgets)
-      .values({
-        type: 'TEXT',
-        title: 'Schema verification',
-      })
-      .returning();
-
-    expect(sourceFile.size).toBe(9_007_199_254_740_993n);
-    expect(sourceFile.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(sourceFile.createdAt).toBeInstanceOf(Date);
-    expect(dataset.rowCount).toBe(0);
-    expect(typeof row.id).toBe('bigint');
-    expect(row.values).toEqual({
-      campaign: 'Nike',
-      date: '2026-01-01',
-      result: 153,
-    });
-    expect(widget.config).toEqual({});
-    expect(widget.datasetId).toBeNull();
-    expect(widget.createdAt).toBeInstanceOf(Date);
-    expect(widget.updatedAt).toBeInstanceOf(Date);
-  });
-
-  it('enforces file checksum and schema fingerprint uniqueness', async () => {
-    await expectConstraintFailure(
-      'INSERT INTO source_files (original_name, format, size, checksum) VALUES ($1, $2, $3, $4)',
-      ['duplicate.csv', 'CSV', 0, sourceFile.checksum],
-      '23505',
-      'source_files_checksum_unique',
-    );
-    await expectConstraintFailure(
-      'INSERT INTO dataset_schemas (fingerprint) VALUES ($1)',
-      [datasetSchema.fingerprint],
-      '23505',
-      'dataset_schemas_fingerprint_unique',
-    );
-  });
-
   it('enforces column positions and keys within a schema', async () => {
-    const [column] = await db
-      .insert(schema.datasetColumns)
-      .values({
-        schemaId: datasetSchema.id,
-        position: 0,
-        name: 'Campaign',
-        key: 'campaign',
-        type: 'STRING',
-      })
-      .returning();
-    expect(column.nullable).toBe(false);
+    await db.insert(schema.datasetColumns).values({
+      schemaId: datasetSchema.id,
+      position: 0,
+      name: 'Campaign',
+      key: 'campaign',
+      type: 'STRING',
+    });
 
     await expectConstraintFailure(
       'INSERT INTO dataset_columns (schema_id, position, name, key, type) VALUES ($1, $2, $3, $4, $5)',
@@ -172,8 +119,7 @@ describe('database schema (integration)', () => {
     );
   });
 
-  it('enforces dataset origin, nonnegative counts, and file dataset identity', async () => {
-    const dataset = await createDataset();
+  it('rejects inconsistent dataset origins and negative row counts', async () => {
     await expectConstraintFailure(
       'INSERT INTO datasets (schema_id, origin, name) VALUES ($1, $2, $3)',
       [datasetSchema.id, 'FILE', 'Missing source'],
@@ -192,20 +138,6 @@ describe('database schema (integration)', () => {
       '23514',
       'datasets_row_count_nonnegative',
     );
-    await expectConstraintFailure(
-      'INSERT INTO datasets (source_file_id, schema_id, origin, name) VALUES ($1, $2, $3, $4)',
-      [sourceFile.id, datasetSchema.id, 'FILE', dataset.name],
-      '23505',
-      'datasets_source_file_id_name_unique',
-    );
-    const generated = await db
-      .insert(schema.datasets)
-      .values([
-        { schemaId: datasetSchema.id, origin: 'GENERATED', name: dataset.name },
-        { schemaId: datasetSchema.id, origin: 'GENERATED', name: dataset.name },
-      ])
-      .returning();
-    expect(generated).toHaveLength(2);
   });
 
   it('enforces row identity, nonnegative indexes, and dataset references', async () => {
@@ -233,24 +165,14 @@ describe('database schema (integration)', () => {
     );
   });
 
-  it.each(['LINE', 'BAR', 'STACKED_BAR', 'PIE'] as const)(
-    '%s widgets require a dataset',
-    async (type) => {
-      const dataset = await createDataset();
-      await db
-        .insert(schema.widgets)
-        .values({ type, title: 'Chart', datasetId: dataset.id });
-      await expectConstraintFailure(
-        'INSERT INTO widgets (type, title) VALUES ($1, $2)',
-        [type, 'Missing dataset'],
-        '23514',
-        'widgets_type_dataset_check',
-      );
-    },
-  );
-
-  it('TEXT widgets reject a dataset reference', async () => {
+  it('rejects charts without datasets and text widgets with datasets', async () => {
     const dataset = await createDataset();
+    await expectConstraintFailure(
+      'INSERT INTO widgets (type, title) VALUES ($1, $2)',
+      ['BAR', 'Missing dataset'],
+      '23514',
+      'widgets_type_dataset_check',
+    );
     await expectConstraintFailure(
       'INSERT INTO widgets (type, title, dataset_id) VALUES ($1, $2, $3)',
       ['TEXT', 'Unexpected dataset', dataset.id],

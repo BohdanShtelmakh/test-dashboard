@@ -17,7 +17,7 @@ export class DatabaseService implements OnApplicationShutdown {
     if (!connectionString.trim()) {
       throw new Error('DATABASE_URL must not be empty');
     }
-    this.pool = new Pool({ connectionString });
+    this.pool = new Pool({ connectionString, connectionTimeoutMillis: 5000 });
     this.pool.on('error', (error: Error & { code?: string }) => {
       // Do not log connection details or the raw error message.
       this.logger.error({

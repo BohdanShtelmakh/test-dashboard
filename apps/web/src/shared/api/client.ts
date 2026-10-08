@@ -1,3 +1,10 @@
+export class ApiConfigurationError extends Error {
+  constructor() {
+    super('API configuration is missing')
+    this.name = 'ApiConfigurationError'
+  }
+}
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -11,7 +18,7 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const baseUrl = import.meta.env.VITE_API_URL?.trim()
   if (!baseUrl) {
-    throw new Error('VITE_API_URL is required')
+    throw new ApiConfigurationError()
   }
 
   const url = `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`

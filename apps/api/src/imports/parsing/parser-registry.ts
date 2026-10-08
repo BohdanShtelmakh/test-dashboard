@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DelimitedTextParser } from './delimited-text.parser.js';
-import type { FileParser } from './file-parser.interface.js';
-import { ParserError } from './parser.error.js';
-import type { SupportedFileFormat } from './parser.types.js';
+import type { FileParser, SupportedFileFormat } from './parser.contract.js';
+import { ParserError } from './parser.contract.js';
 import { XlsxParser } from './xlsx.parser.js';
 
 @Injectable()

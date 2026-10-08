@@ -64,7 +64,7 @@ describe('widget mutation cache behavior', () => {
       type: 'BAR',
       title: 'Bar',
     })
-    await mutations.create.mutateAsync('BAR')
+    await mutations.create.mutateAsync({ type: 'BAR' })
     expect(client.getQueryState(['widgets'])?.isInvalidated).toBe(true)
     expect(client.getQueryState(['widgets', 'chart'])?.isInvalidated).toBe(
       false,

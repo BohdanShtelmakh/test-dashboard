@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
+import { AppModule } from '../app.module.js';
 import { DatabaseService } from './database.service.js';
 
 describe('DatabaseService', () => {
@@ -10,23 +11,27 @@ describe('DatabaseService', () => {
     vi.unstubAllEnvs();
   });
 
-  it('exposes Drizzle and closes its pool when Nest shuts down', async () => {
+  it('shares one pool across application modules and closes it when Nest shuts down', async () => {
+    const on = vi.spyOn(Pool.prototype, 'on');
     const end = vi.spyOn(Pool.prototype, 'end');
-    const module = await Test.createTestingModule({
-      providers: [
-        DatabaseService,
-        {
-          provide: ConfigService,
-          useValue: new ConfigService({
-            DATABASE_URL:
-              'postgresql://dashboard:dashboard@localhost:5432/dashboard',
-          }),
-        },
-      ],
-    }).compile();
-
-    expect(module.get(DatabaseService).db).toBeDefined();
-    await module.close();
+    const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(ConfigService)
+      .useValue(
+        new ConfigService({
+          DATABASE_URL:
+            'postgresql://dashboard:dashboard@localhost:5432/dashboard',
+        }),
+      )
+      .compile();
+    try {
+      expect(module.get(DatabaseService).db).toBeDefined();
+      const pools = new Set(
+        on.mock.contexts.filter((context) => context instanceof Pool),
+      );
+      expect(pools.size).toBe(1);
+    } finally {
+      await module.close();
+    }
     expect(end).toHaveBeenCalledTimes(1);
   });
 

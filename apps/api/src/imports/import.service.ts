@@ -3,18 +3,18 @@ import { asc, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service.js';
 import { datasets, sourceFiles } from '../database/schema/index.js';
 import { ColumnKeyNormalizer } from './column-key-normalizer.js';
-import { DatasetWriter } from './dataset-writer.js';
-import { fileChecksum } from './file-checksum.js';
-import { ImportError } from './import.error.js';
-import type { ImportFileInput, ImportFileResult } from './import.types.js';
-import type { ImportTransaction } from './import-transaction.js';
+import { DatasetWriter } from './dataset-persistence.js';
+import { SchemaRegistry } from '../database/dataset-persistence.js';
+import { detectFileFormat, fileChecksum } from './file-utils.js';
+import { ImportError } from './import.contract.js';
+import type { ImportFileInput, ImportFileResult } from './import.contract.js';
+import type { DatabaseTransaction } from '../database/dataset.contract.js';
 import { ParserRegistry } from './parsing/parser-registry.js';
-import type { RawCellValue } from './parsing/parser.types.js';
+import type { RawCellValue } from './parsing/parser.contract.js';
 import {
   DEFAULT_SCHEMA_SAMPLE_LIMIT,
   SchemaInferrer,
-} from './schema-inferrer.js';
-import { SchemaRegistry } from './schema-registry.js';
+} from './data-normalization.js';
 
 @Injectable()
 export class ImportService {
@@ -30,6 +30,7 @@ export class ImportService {
   async importFile(input: ImportFileInput): Promise<ImportFileResult> {
     let datasetName: string | undefined;
     try {
+      const format = input.format ?? detectFileFormat(input.filePath);
       const { checksum, size } = await fileChecksum(input.filePath);
       const [existing] = await this.database.db
         .select({ id: sourceFiles.id })
@@ -45,7 +46,7 @@ export class ImportService {
             .insert(sourceFiles)
             .values({
               originalName: input.originalName,
-              format: input.format,
+              format,
               mimeType: input.mimeType,
               checksum,
               size,
@@ -67,8 +68,8 @@ export class ImportService {
             reused: false,
             datasets: [],
           };
-          const parser = this.parsers.getParser(input.format);
-          for await (const dataset of parser.parse(input)) {
+          const parser = this.parsers.getParser(format);
+          for await (const dataset of parser.parse({ ...input, format })) {
             datasetName = dataset.name;
             const iterator = dataset.rows[Symbol.asyncIterator]();
             try {
@@ -133,7 +134,7 @@ export class ImportService {
 
   private async existingResult(
     sourceFileId: string,
-    client: ImportTransaction | DatabaseService['db'] = this.database.db,
+    client: DatabaseTransaction | DatabaseService['db'] = this.database.db,
   ): Promise<ImportFileResult> {
     const stored = await client
       .select({

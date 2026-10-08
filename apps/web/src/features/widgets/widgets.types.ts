@@ -1,5 +1,8 @@
 export type ChartWidgetType = 'LINE' | 'BAR' | 'STACKED_BAR' | 'PIE'
 export type WidgetType = ChartWidgetType | 'TEXT'
+export type CreateWidgetInput =
+  { type: 'TEXT'; text?: string } | { type: ChartWidgetType }
+
 export interface WidgetSummary {
   id: string
   type: WidgetType

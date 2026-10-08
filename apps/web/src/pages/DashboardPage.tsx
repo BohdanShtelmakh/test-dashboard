@@ -11,16 +11,18 @@ import {
 import { WidgetCard, WidgetSkeleton } from '../features/widgets/WidgetCard.tsx'
 import { useWidgets } from '../features/widgets/widgets.queries.ts'
 import { CreateWidgetModal } from '../features/widgets/CreateWidgetModal.tsx'
+import { ApiConfigurationError } from '../shared/api/client.ts'
 import { useState } from 'react'
 
 export function DashboardPage() {
   const query = useWidgets()
+  const configurationError = query.error instanceof ApiConfigurationError
   const [creating, setCreating] = useState(false)
   return (
     <Container component="main" size="xl" py="xl">
       <Group justify="space-between" mb="xl">
         <Title order={1}>Dashboard</Title>
-        <Button onClick={() => setCreating(true)}>Create widget</Button>
+        <Button disabled={configurationError} onClick={() => setCreating(true)}>Create widget</Button>
       </Group>
       <CreateWidgetModal opened={creating} onClose={() => setCreating(false)} />
       {query.isError && query.data && (
@@ -51,15 +53,15 @@ export function DashboardPage() {
       ) : query.isError && !query.data ? (
         <Alert color="red" title="Unable to load the dashboard" role="alert">
           <Stack gap="sm">
-            <Text>Please try again.</Text>
-            <Button
+            <Text>{configurationError ? 'The dashboard is temporarily unavailable. Please contact support.' : 'Please try again.'}</Text>
+            {!configurationError && <Button
               variant="light"
               color="red"
               onClick={() => void query.refetch()}
               loading={query.isFetching}
             >
               Retry dashboard
-            </Button>
+            </Button>}
           </Stack>
         </Alert>
       ) : query.data?.length ? (

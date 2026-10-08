@@ -23,6 +23,9 @@ export function BarWidget({
       ? { xKey: widget.config.categoryKey, valueKey: widget.config.valueKey }
       : widget.config
   const { data, series } = pivotLineData(widget.dataset, config)
+  const xType = widget.dataset.columns.find(
+    (column) => column.key === config.xKey,
+  )?.type
   if (!hasNumericData(data))
     return <Text c="dimmed">No valid chart data to display.</Text>
   return (
@@ -32,7 +35,11 @@ export function BarWidget({
         margin={{ top: 12, right: 12, bottom: 8, left: -20 }}
       >
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="x" tickFormatter={axisLabel} tick={{ fontSize: 11 }} />
+        <XAxis
+          dataKey="x"
+          tickFormatter={(value) => axisLabel(value, xType)}
+          tick={{ fontSize: 11 }}
+        />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip />
         <Legend wrapperStyle={{ fontSize: 12 }} />

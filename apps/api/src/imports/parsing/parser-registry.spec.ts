@@ -1,14 +1,13 @@
 import { Test } from '@nestjs/testing';
 import { DelimitedTextParser } from './delimited-text.parser.js';
 import { ParserRegistry } from './parser-registry.js';
-import { ParsingModule } from './parsing.module.js';
-import type { SupportedFileFormat } from './parser.types.js';
+import type { SupportedFileFormat } from './parser.contract.js';
 import { XlsxParser } from './xlsx.parser.js';
 
 describe('ParserRegistry', () => {
   it('resolves parsers through Nest without database or HTTP dependencies', async () => {
     const module = await Test.createTestingModule({
-      imports: [ParsingModule],
+      providers: [DelimitedTextParser, XlsxParser, ParserRegistry],
     }).compile();
     const registry = module.get(ParserRegistry);
     expect(registry.getParser('CSV')).toBe(module.get(DelimitedTextParser));
