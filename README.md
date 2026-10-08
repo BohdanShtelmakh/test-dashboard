@@ -2,6 +2,10 @@
 
 A full-stack analytics dashboard built for the YouScan Full-Stack Engineer test assignment. The frontend uses React, TypeScript, Vite, Mantine, TanStack Query, and Recharts; the backend uses NestJS, PostgreSQL, and Drizzle ORM. Provided files are parsed into persisted datasets, which chart widgets render through a REST API.
 
+## Live demo
+
+https://youscan.bohdanlab.dpdns.org/
+
 ## Features
 
 - Three widgets per desktop row, unlimited rows, and a responsive tablet/mobile layout.
