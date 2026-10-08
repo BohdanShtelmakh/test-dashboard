@@ -1,11 +1,31 @@
 # Use explicitly with the base file; the development override is not loaded.
+x-logging: &production-logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILES:-3}"
+
+x-tool-limits: &tool-limits
+  cpus: "${TOOLS_CPUS:-0.5}"
+  mem_limit: ${TOOLS_MEMORY:-384m}
+  memswap_limit: ${TOOLS_MEMORY:-384m}
+  logging: *production-logging
+
 services:
   postgres:
+    cpus: "${POSTGRES_CPUS:-0.5}"
+    mem_limit: ${POSTGRES_MEMORY:-384m}
+    memswap_limit: ${POSTGRES_MEMORY:-384m}
+    logging: *production-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
   api:
+    cpus: "${API_CPUS:-0.5}"
+    mem_limit: ${API_MEMORY:-384m}
+    memswap_limit: ${API_MEMORY:-384m}
+    logging: *production-logging
     ports:
       - "127.0.0.1:${API_HOST_PORT:-3000}:${API_PORT:-3000}"
     environment: &production-environment
@@ -14,6 +34,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
       CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN to the public HTTPS origin}
   migrate:
+    <<: *tool-limits
     environment: *production-environment
   seed:
+    <<: *tool-limits
     environment: *production-environment
