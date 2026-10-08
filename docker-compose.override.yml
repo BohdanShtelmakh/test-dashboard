@@ -1,0 +1,18 @@
+# Automatically loaded for local development by `docker compose`.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+  api:
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-3000}:${API_PORT:-3000}"
+  pgweb:
+    image: sosedoff/pgweb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PGWEB_PORT:-8081}:8081"
+    environment:
+      PGWEB_DATABASE_URL: ${PGWEB_DATABASE_URL:-postgres://dashboard:dashboard@postgres:5432/dashboard?sslmode=disable}
+    depends_on:
+      postgres:
+        condition: service_healthy

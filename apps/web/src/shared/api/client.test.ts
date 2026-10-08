@@ -22,6 +22,14 @@ describe('apiFetch', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/example', { signal })
   })
 
+  it('supports the same-origin production base URL', async () => {
+    vi.stubEnv('VITE_API_URL', '/')
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([]))
+    vi.stubGlobal('fetch', fetchMock)
+    await apiFetch('/api/widgets')
+    expect(fetchMock).toHaveBeenCalledWith('/api/widgets', undefined)
+  })
+
   it('throws an ApiError with the HTTP status for non-2xx responses', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(null, { status: 403, statusText: 'Forbidden' }),

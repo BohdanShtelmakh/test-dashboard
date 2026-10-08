@@ -2,47 +2,37 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
-
     environment:
-      POSTGRES_DB: dashboard
-      POSTGRES_USER: dashboard
-      POSTGRES_PASSWORD: dashboard
-
-    ports:
-      - "5432:5432"
-
+      POSTGRES_DB: ${POSTGRES_DB:-dashboard}
+      POSTGRES_USER: ${POSTGRES_USER:-dashboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dashboard}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  pgweb:
-    image: sosedoff/pgweb
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8081:8081"
-    environment:
-      PGWEB_DATABASE_URL: postgres://dashboard:dashboard@postgres:5432/dashboard?sslmode=disable
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgresql://dashboard:dashboard@postgres:5432/dashboard
+    environment: &api-environment
+      NODE_ENV: production
+      PORT: ${API_PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://dashboard:dashboard@postgres:5432/dashboard}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+process.env.PORT+'/api/widgets').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   migrate:
     profiles: ["tools"]
@@ -51,8 +41,21 @@ services:
       dockerfile: apps/api/Dockerfile
       target: build
     command: ["npm", "run", "db:migrate", "-w", "@test-dashboard/api"]
-    environment:
-      DATABASE_URL: postgresql://dashboard:dashboard@postgres:5432/dashboard
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  seed:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["node", "dist/database/seed.js"]
+    environment: *api-environment
+    volumes:
+      - ./data:/app/data:ro
     depends_on:
       postgres:
         condition: service_healthy

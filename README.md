@@ -93,7 +93,7 @@ npm run db:import -w @test-dashboard/api -- data/additional.csv
 
 Relative paths resolve from the directory where you invoke npm. Supported extensions are `.csv`, `.tsv`, and `.xlsx`; format detection is shared with the seed. Invalid imports fail without committing a partial file.
 
-Migrations are explicit; the application does not run schema synchronization at startup. PostgreSQL data persists in the `postgres_data` Docker volume. Run the seed on the host because the API image excludes the supplied data files.
+Migrations are explicit; the application does not run schema synchronization at startup. PostgreSQL data persists in the `postgres_data` Docker volume. The API image excludes the supplied data files; the one-shot seed service mounts `data/` read-only.
 
 ## Running locally
 
@@ -146,7 +146,7 @@ npm run db:migrate -w @test-dashboard/api
 npm run dev:api
 ```
 
-The frontend is not containerized. Run `npm run dev:web` separately and use the same frontend/API URLs above. pgweb binds to localhost on port 8081. This Compose configuration is for local development; public deployment instructions and a deployment link will be supplied separately.
+The frontend is not containerized. Run `npm run dev:web` separately and use the same frontend/API URLs above. pgweb binds to localhost on port 8081. The automatically loaded `docker-compose.override.yml` adds development-only port publishing and pgweb.
 
 ## API overview
 
